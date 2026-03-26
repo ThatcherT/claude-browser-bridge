@@ -91,10 +91,14 @@ export function registerTools(server, send) {
     "eval_js",
     "Execute JavaScript in the page context and return the result",
     {
-      code: z.string().describe("JavaScript code to execute"),
+      code: z.string().optional().describe("JavaScript code to execute"),
+      expression: z.string().optional().describe("Alias for code"),
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
-    async ({ code, tab_id }) => {
+    async (params) => {
+      const code = params.code || params.expression;
+      const tab_id = params.tab_id;
+      if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
       const result = await send("eval_js", { tab_id, code });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
