@@ -3,7 +3,7 @@
   "name": "Browser Bridge",
   "version": "1.0.0",
   "description": "MCP bridge for Claude Code browser control",
-  "permissions": ["activeTab", "tabs", "scripting", "alarms"],
+  "permissions": ["activeTab", "tabs", "scripting", "alarms", "debugger"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

@@ -85,6 +85,85 @@ async function execInTabMainWorld(tabId, func, args = []) {
   return results[0].result;
 }
 
+// --- CDP (Chrome DevTools Protocol) helpers for trusted input events ---
+
+const debuggerAttached = new Set();
+
+async function attachDebugger(tabId) {
+  if (debuggerAttached.has(tabId)) return;
+  await chrome.debugger.attach({ tabId }, "1.3");
+  debuggerAttached.add(tabId);
+  // auto-detach when tab closes or navigates away
+  chrome.tabs.onRemoved.addListener(function onRemoved(removedId) {
+    if (removedId === tabId) {
+      debuggerAttached.delete(tabId);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+    }
+  });
+}
+
+async function detachDebugger(tabId) {
+  if (!debuggerAttached.has(tabId)) return;
+  try {
+    await chrome.debugger.detach({ tabId });
+  } catch {}
+  debuggerAttached.delete(tabId);
+}
+
+chrome.debugger.onDetach.addListener((source) => {
+  if (source.tabId) debuggerAttached.delete(source.tabId);
+});
+
+async function cdpSend(tabId, method, params = {}) {
+  return chrome.debugger.sendCommand({ tabId }, method, params);
+}
+
+async function cdpClick(tabId, x, y) {
+  await attachDebugger(tabId);
+  await cdpSend(tabId, "Input.dispatchMouseEvent", {
+    type: "mousePressed", x, y, button: "left", clickCount: 1,
+  });
+  await cdpSend(tabId, "Input.dispatchMouseEvent", {
+    type: "mouseReleased", x, y, button: "left", clickCount: 1,
+  });
+}
+
+async function cdpType(tabId, text) {
+  await attachDebugger(tabId);
+  for (const char of text) {
+    await cdpSend(tabId, "Input.dispatchKeyEvent", {
+      type: "keyDown", text: char, unmodifiedText: char,
+    });
+    await cdpSend(tabId, "Input.dispatchKeyEvent", {
+      type: "keyUp", text: char, unmodifiedText: char,
+    });
+  }
+}
+
+async function cdpPress(tabId, key, code, keyCode) {
+  await attachDebugger(tabId);
+  await cdpSend(tabId, "Input.dispatchKeyEvent", {
+    type: "keyDown", key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode,
+  });
+  await cdpSend(tabId, "Input.dispatchKeyEvent", {
+    type: "keyUp", key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode,
+  });
+}
+
+// Get element center coordinates for CDP click
+async function getElementCenter(tabId, selector) {
+  return await execInTab(tabId, (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) throw new Error(`Element not found: ${sel}`);
+    el.scrollIntoView({ block: "center" });
+    const rect = el.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+    };
+  }, [selector]);
+}
+
 // --- Request handlers ---
 
 async function handleRequest(action, params) {
@@ -159,30 +238,26 @@ async function handleRequest(action, params) {
 
     case "click": {
       const tabId = await resolveTabId(params.tab_id);
-      return await execInTab(tabId, (selector) => {
-        const el = document.querySelector(selector);
-        if (!el) throw new Error(`Element not found: ${selector}`);
-        el.scrollIntoView({ block: "center" });
-        el.click();
-        return { clicked: selector, tagName: el.tagName.toLowerCase() };
-      }, [params.selector]);
+      const { x, y } = await getElementCenter(tabId, params.selector);
+      await cdpClick(tabId, x, y);
+      return { clicked: params.selector, x, y, method: "cdp" };
     }
 
     case "type": {
       const tabId = await resolveTabId(params.tab_id);
-      return await execInTab(tabId, (selector, text, clear) => {
+      // Focus the element first
+      await execInTab(tabId, (selector, clear) => {
         const el = document.querySelector(selector);
         if (!el) throw new Error(`Element not found: ${selector}`);
         el.focus();
-        if (clear) el.value = "";
-        // type character by character for better compatibility
-        for (const char of text) {
-          el.value += char;
-          el.dispatchEvent(new InputEvent("input", { bubbles: true, data: char, inputType: "insertText" }));
+        if (clear) {
+          el.value = "";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
         }
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-        return { typed: text, selector };
-      }, [params.selector, params.text, params.clear !== false]);
+      }, [params.selector, params.clear !== false]);
+      // Type via CDP for trusted key events
+      await cdpType(tabId, params.text);
+      return { typed: params.text, selector: params.selector, method: "cdp" };
     }
 
     case "eval_js": {

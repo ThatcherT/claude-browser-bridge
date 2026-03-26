@@ -16,6 +16,8 @@ You have full control of the user's real Brave browser through the browser-bridg
 
 If you encounter CAPTCHAs, verification steps, or anything requiring human judgment, take a screenshot and ask the user to handle that step manually, then continue.
 
+**Limitation:** You cannot interact with `brave://` or `chrome://` internal pages (extensions page, settings, etc.) — the browser blocks extension access to these URLs. If the extension needs reloading after code changes, ask the user to reload it from `brave://extensions`.
+
 ## Architecture
 
 ```
