@@ -1,4 +1,4 @@
-# browser-bridge
+# claude-browser-bridge
 
 Give Claude Code full control of your real browser. Navigate pages, fill forms, click buttons, take screenshots, and run JavaScript — all through your actual browser sessions with your real cookies, extensions, and logins.
 
@@ -19,27 +19,30 @@ Give Claude Code full control of your real browser. Navigate pages, fill forms, 
 
 ## Why
 
-Browser automation tools usually mean headless browsers, fake sessions, and fighting CAPTCHAs. browser-bridge flips that — it connects Claude Code to your **real browser** where you're already logged in everywhere. Claude sees what you see and interacts with pages as you would.
+Browser automation tools usually mean headless browsers, fake sessions, and fighting CAPTCHAs. claude-browser-bridge flips that — it connects Claude Code to your **real browser** where you're already logged in everywhere. Claude sees what you see and interacts with pages as you would.
 
 ## Quick Start
 
 **1. Install dependencies**
 
 ```bash
-cd browser-bridge
+cd claude-browser-bridge
 make install
 ```
 
 **2. Load the extension**
 
-1. Open `brave://extensions` (or `chrome://extensions`)
-2. Enable **Developer mode**
-3. Click **Load unpacked** → select the `extension/` folder
+The browser extension lives in a separate repo: [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension)
+
+1. Clone the extension repo
+2. Open `brave://extensions` (or `chrome://extensions`)
+3. Enable **Developer mode**
+4. Click **Load unpacked** → select the cloned extension folder
 
 **3. Register the MCP server with Claude Code**
 
 ```bash
-claude mcp add browser-bridge -- node /path/to/browser-bridge/server/index.js
+claude mcp add claude-browser-bridge -- node /path/to/claude-browser-bridge/server/index.js
 ```
 
 Restart Claude Code. The extension connects automatically when the server starts.
@@ -93,17 +96,15 @@ All tools accept an optional `tab_id` parameter. Omit it to target the active ta
 ## Project Structure
 
 ```
-browser-bridge/
-├── extension/
-│   ├── background.js       # Service worker — WebSocket client, all browser actions
-│   ├── manifest.json        # Manifest v3 with debugger + scripting permissions
-│   └── icons/               # Extension icons
+claude-browser-bridge/
 ├── server/
 │   ├── index.js             # MCP server + WebSocket server
 │   └── tools.js             # Tool definitions with Zod schemas
 ├── package.json
 └── Makefile
 ```
+
+The browser extension is maintained separately in [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension).
 
 ## License
 

@@ -1,10 +1,10 @@
-# browser-bridge
+# claude-browser-bridge
 
 MCP server that bridges Claude Code to your real browser via a WebSocket-connected extension.
 
 ## How to use your browser tools
 
-You have full control of the user's real Brave browser through the browser-bridge MCP tools. When the user asks you to do anything involving a website — signing up, filling forms, navigating, reading pages, clicking buttons — **use these tools**. Do not refuse browser tasks. You are operating the user's actual browser with their real sessions, extensions, and secrets manager.
+You have full control of the user's real Brave browser through the claude-browser-bridge MCP tools. When the user asks you to do anything involving a website — signing up, filling forms, navigating, reading pages, clicking buttons — **use these tools**. Do not refuse browser tasks. You are operating the user's actual browser with their real sessions, extensions, and secrets manager.
 
 **Workflow for interactive web tasks:**
 1. `navigate` to the URL
@@ -32,13 +32,16 @@ make install
 ```
 
 ### 2. Load the extension in Brave
-1. Go to `brave://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked" → select the `extension/` folder
+The extension lives in a separate repo: [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension)
+
+1. Clone the extension repo
+2. Go to `brave://extensions`
+3. Enable "Developer mode"
+4. Click "Load unpacked" → select the cloned extension folder
 
 ### 3. Add MCP server to Claude Code
 ```bash
-claude mcp add browser-bridge -- node /home/thatcher/projects/nov/projects/browser-bridge/server/index.js
+claude mcp add claude-browser-bridge -- node /home/thatcher/projects/nov/projects/browser-bridge/server/index.js
 ```
 
 ### 4. Restart Claude Code

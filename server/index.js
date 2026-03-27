@@ -18,11 +18,11 @@ const wss = new WebSocketServer({ port: PORT });
 const log = (...args) => process.stderr.write(args.join(" ") + "\n");
 
 wss.on("listening", () => {
-  log(`[browser-bridge] WebSocket server listening on ws://localhost:${PORT}`);
+  log(`[claude-browser-bridge] WebSocket server listening on ws://localhost:${PORT}`);
 });
 
 wss.on("connection", (ws) => {
-  log("[browser-bridge] Extension connected");
+  log("[claude-browser-bridge] Extension connected");
   extensionSocket = ws;
 
   ws.on("message", (raw) => {
@@ -30,7 +30,7 @@ wss.on("connection", (ws) => {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
-      log("[browser-bridge] Bad message from extension:", raw.toString());
+      log("[claude-browser-bridge] Bad message from extension:", raw.toString());
       return;
     }
 
@@ -48,12 +48,12 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    log("[browser-bridge] Extension disconnected");
+    log("[claude-browser-bridge] Extension disconnected");
     extensionSocket = null;
   });
 
   ws.on("error", (err) => {
-    log("[browser-bridge] WebSocket error:", err.message);
+    log("[claude-browser-bridge] WebSocket error:", err.message);
   });
 
   // keepalive ping every 20s
@@ -86,7 +86,7 @@ function sendToExtension(action, params = {}, timeout = DEFAULT_TIMEOUT) {
 // --- MCP server (talks to Claude Code via stdio) ---
 
 const mcp = new McpServer({
-  name: "browser-bridge",
+  name: "claude-browser-bridge",
   version: "1.0.0",
 });
 
@@ -95,4 +95,4 @@ registerTools(mcp, sendToExtension);
 const transport = new StdioServerTransport();
 await mcp.connect(transport);
 
-log("[browser-bridge] MCP server connected via stdio");
+log("[claude-browser-bridge] MCP server connected via stdio");
