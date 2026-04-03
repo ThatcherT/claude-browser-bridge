@@ -1,0 +1,17 @@
+{
+  "description": "Auto-start browser-bridge daemon before any browser tool call",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__plugin_claude-browser-bridge",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/ensure-daemon.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
