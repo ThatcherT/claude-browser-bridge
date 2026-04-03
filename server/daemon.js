@@ -10,6 +10,7 @@
 
 import { WebSocketServer } from "ws";
 import { createServer as createNetServer } from "net";
+import { createServer as createHttpServer } from "http";
 import { unlinkSync, existsSync } from "fs";
 import { randomUUID } from "crypto";
 import { getIpcAddress, createNdjsonParser, sendNdjson, PORT } from "./ipc.js";
@@ -22,15 +23,35 @@ const pending = new Map(); // requestId → { clientSocket, timer }
 const clients = new Set(); // connected IPC client sockets
 
 // --- WebSocket server (talks to browser extension) ---
+// Use an HTTP server to handle Private Network Access (PNA) preflight requests.
+// Chrome/Brave extensions must pass a PNA check before connecting to localhost
+// via WebSocket. Without this, the browser sends an OPTIONS preflight that the
+// bare ws library can't answer, and the connection silently fails.
 
-const wss = new WebSocketServer({ port: PORT });
-
-wss.on("listening", () => {
-  log(`[daemon] WebSocket server listening on ws://localhost:${PORT}`);
+const httpServer = createHttpServer((req, res) => {
+  // Handle PNA preflight (and general CORS preflight)
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Private-Network": "true",
+    });
+    res.end();
+    return;
+  }
+  res.writeHead(426); // Upgrade Required
+  res.end();
 });
 
-wss.on("error", (err) => {
-  log(`[daemon] WebSocket server error: ${err.message}`);
+const wss = new WebSocketServer({ server: httpServer });
+
+httpServer.listen(PORT, "127.0.0.1", () => {
+  log(`[daemon] WebSocket server listening on ws://127.0.0.1:${PORT}`);
+});
+
+httpServer.on("error", (err) => {
+  log(`[daemon] HTTP/WebSocket server error: ${err.message}`);
   process.exit(1);
 });
 
@@ -211,8 +232,9 @@ function cleanup() {
   if (!ipcAddress.startsWith("\\\\.\\pipe\\")) {
     try { unlinkSync(ipcAddress); } catch { /* already gone */ }
   }
-  // Close WebSocket server
+  // Close WebSocket and HTTP servers
   wss.close();
+  httpServer.close();
   process.exit(0);
 }
 
