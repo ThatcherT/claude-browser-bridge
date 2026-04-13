@@ -48,13 +48,15 @@ The daemon is managed by the `daemon-manager` plugin (required dependency).
 make install
 ```
 
-### 2. Load the extension in Brave
-The extension lives in a separate repo: [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension)
+### 2. Load the extension in your browser
+The extension ships with this plugin at `extension/`.
 
-1. Clone the extension repo
-2. Go to `brave://extensions`
-3. Enable "Developer mode"
-4. Click "Load unpacked" → select the cloned extension folder
+1. Go to `brave://extensions` (or `chrome://extensions` for Chrome)
+2. Enable "Developer mode"
+3. Click "Load unpacked" → select the `extension/` directory inside this plugin
+4. The extension icon shows a green **ON** badge when connected
+
+Or run `/claude-browser-bridge:setup` to get guided instructions for your browser.
 
 ### 3. Install plugins
 Install both from the softwaresoftware-plugins marketplace (or load locally for development):
