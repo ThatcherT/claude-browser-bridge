@@ -20999,7 +20999,28 @@ var StdioServerTransport = class {
 
 // server/index.js
 import { createConnection } from "net";
+import { randomUUID as randomUUID2 } from "crypto";
+
+// server/telemetry.js
 import { randomUUID } from "crypto";
+var TELEMETRY_URL = "https://telemetry.softwaresoftware.dev/api/events";
+var SESSION_ID = randomUUID();
+function sendEvent(eventType, metadata) {
+  try {
+    fetch(TELEMETRY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: eventType,
+        source: "claude-browser-bridge",
+        session_id: SESSION_ID,
+        metadata: metadata || {}
+      })
+    }).catch(() => {
+    });
+  } catch {
+  }
+}
 
 // server/tools.js
 function registerTools(server, send, getWarning = () => null) {
@@ -21016,8 +21037,14 @@ function registerTools(server, send, getWarning = () => null) {
       all_tabs: external_exports.boolean().optional().describe("Show all tabs across all sessions, not just this session's group")
     },
     async ({ all_tabs }) => {
-      const tabs = await send("list_tabs", { all_tabs });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(tabs, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "list_tabs" });
+      try {
+        const tabs = await send("list_tabs", { all_tabs });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(tabs, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "list_tabs", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21025,8 +21052,14 @@ function registerTools(server, send, getWarning = () => null) {
     "Get info about a specific tab (defaults to active tab)",
     { tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab") },
     async ({ tab_id }) => {
-      const info = await send("get_tab_info", { tab_id });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "get_tab_info" });
+      try {
+        const info = await send("get_tab_info", { tab_id });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_tab_info", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21034,10 +21067,16 @@ function registerTools(server, send, getWarning = () => null) {
     "Take a screenshot of a tab (defaults to active tab). Returns base64 PNG.",
     { tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab") },
     async ({ tab_id }) => {
-      const base642 = await send("screenshot", { tab_id });
-      return {
-        content: withWarning([{ type: "image", data: base642, mimeType: "image/png" }])
-      };
+      sendEvent("tool_invoked", { tool: "screenshot" });
+      try {
+        const base642 = await send("screenshot", { tab_id });
+        return {
+          content: withWarning([{ type: "image", data: base642, mimeType: "image/png" }])
+        };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "screenshot", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21048,8 +21087,14 @@ function registerTools(server, send, getWarning = () => null) {
       format: external_exports.enum(["text", "html"]).default("text").describe("Return format")
     },
     async ({ tab_id, format }) => {
-      const content = await send("get_page_content", { tab_id, format });
-      return { content: withWarning([{ type: "text", text: content }]) };
+      sendEvent("tool_invoked", { tool: "get_page_content" });
+      try {
+        const content = await send("get_page_content", { tab_id, format });
+        return { content: withWarning([{ type: "text", text: content }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_page_content", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21060,8 +21105,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ url, tab_id }) => {
-      const result = await send("navigate", { tab_id, url }, 6e4);
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "navigate" });
+      try {
+        const result = await send("navigate", { tab_id, url }, 6e4);
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "navigate", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21072,8 +21123,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ selector, tab_id }) => {
-      const result = await send("click", { tab_id, selector });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "click" });
+      try {
+        const result = await send("click", { tab_id, selector });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "click", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21086,8 +21143,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ selector, text, clear, tab_id }) => {
-      const result = await send("type", { tab_id, selector, text, clear });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "type" });
+      try {
+        const result = await send("type", { tab_id, selector, text, clear });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "type", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21099,11 +21162,17 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async (params) => {
-      const code = params.code || params.expression;
-      const tab_id = params.tab_id;
-      if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
-      const result = await send("eval_js", { tab_id, code });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "eval_js" });
+      try {
+        const code = params.code || params.expression;
+        const tab_id = params.tab_id;
+        if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
+        const result = await send("eval_js", { tab_id, code });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "eval_js", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21117,8 +21186,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ fields, tab_id }) => {
-      const result = await send("fill_form", { tab_id, fields });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "fill_form" });
+      try {
+        const result = await send("fill_form", { tab_id, fields });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "fill_form", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21129,8 +21204,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ selector, tab_id }) => {
-      const info = await send("get_element_info", { tab_id, selector });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "get_element_info" });
+      try {
+        const info = await send("get_element_info", { tab_id, selector });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_element_info", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21142,8 +21223,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ selector, timeout, tab_id }) => {
-      const result = await send("wait_for", { tab_id, selector, timeout }, timeout + 5e3);
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "wait_for" });
+      try {
+        const result = await send("wait_for", { tab_id, selector, timeout }, timeout + 5e3);
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "wait_for", error: err.message });
+        throw err;
+      }
     }
   );
   server.tool(
@@ -21157,8 +21244,14 @@ function registerTools(server, send, getWarning = () => null) {
       tab_id: external_exports.number().optional().describe("Tab ID, omit for active tab")
     },
     async ({ x, y, selector, behavior, tab_id }) => {
-      const result = await send("scroll", { tab_id, x, y, selector, behavior });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "scroll" });
+      try {
+        const result = await send("scroll", { tab_id, x, y, selector, behavior });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "scroll", error: err.message });
+        throw err;
+      }
     }
   );
 }
@@ -21205,7 +21298,7 @@ var DEFAULT_TIMEOUT = 3e4;
 var RECONNECT_DELAY = 1e3;
 var MAX_RECONNECT_DELAY = 1e4;
 var log = (...args) => process.stderr.write(args.join(" ") + "\n");
-var sessionId = randomUUID().slice(0, 8);
+var sessionId = randomUUID2().slice(0, 8);
 var pending = /* @__PURE__ */ new Map();
 var ipcAddress = getIpcAddress();
 var ipcSocket = null;
@@ -21293,7 +21386,7 @@ function sendToDaemon(action, params = {}, timeout = DEFAULT_TIMEOUT) {
       reject(err);
       return;
     }
-    const requestId = randomUUID();
+    const requestId = randomUUID2();
     const timer = setTimeout(() => {
       pending.delete(requestId);
       reject(new Error(`Request timed out after ${timeout}ms (action: ${action})`));

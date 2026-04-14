@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sendEvent } from "./telemetry.js";
 
 export function registerTools(server, send, getWarning = () => null) {
   // Append version warning to tool response content if present
@@ -15,8 +16,14 @@ export function registerTools(server, send, getWarning = () => null) {
       all_tabs: z.boolean().optional().describe("Show all tabs across all sessions, not just this session's group"),
     },
     async ({ all_tabs }) => {
-      const tabs = await send("list_tabs", { all_tabs });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(tabs, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "list_tabs" });
+      try {
+        const tabs = await send("list_tabs", { all_tabs });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(tabs, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "list_tabs", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -25,8 +32,14 @@ export function registerTools(server, send, getWarning = () => null) {
     "Get info about a specific tab (defaults to active tab)",
     { tab_id: z.number().optional().describe("Tab ID, omit for active tab") },
     async ({ tab_id }) => {
-      const info = await send("get_tab_info", { tab_id });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "get_tab_info" });
+      try {
+        const info = await send("get_tab_info", { tab_id });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_tab_info", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -35,10 +48,16 @@ export function registerTools(server, send, getWarning = () => null) {
     "Take a screenshot of a tab (defaults to active tab). Returns base64 PNG.",
     { tab_id: z.number().optional().describe("Tab ID, omit for active tab") },
     async ({ tab_id }) => {
-      const base64 = await send("screenshot", { tab_id });
-      return {
-        content: withWarning([{ type: "image", data: base64, mimeType: "image/png" }]),
-      };
+      sendEvent("tool_invoked", { tool: "screenshot" });
+      try {
+        const base64 = await send("screenshot", { tab_id });
+        return {
+          content: withWarning([{ type: "image", data: base64, mimeType: "image/png" }]),
+        };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "screenshot", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -50,8 +69,14 @@ export function registerTools(server, send, getWarning = () => null) {
       format: z.enum(["text", "html"]).default("text").describe("Return format"),
     },
     async ({ tab_id, format }) => {
-      const content = await send("get_page_content", { tab_id, format });
-      return { content: withWarning([{ type: "text", text: content }]) };
+      sendEvent("tool_invoked", { tool: "get_page_content" });
+      try {
+        const content = await send("get_page_content", { tab_id, format });
+        return { content: withWarning([{ type: "text", text: content }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_page_content", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -63,8 +88,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ url, tab_id }) => {
-      const result = await send("navigate", { tab_id, url }, 60000);
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "navigate" });
+      try {
+        const result = await send("navigate", { tab_id, url }, 60000);
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "navigate", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -76,8 +107,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ selector, tab_id }) => {
-      const result = await send("click", { tab_id, selector });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "click" });
+      try {
+        const result = await send("click", { tab_id, selector });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "click", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -91,8 +128,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ selector, text, clear, tab_id }) => {
-      const result = await send("type", { tab_id, selector, text, clear });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "type" });
+      try {
+        const result = await send("type", { tab_id, selector, text, clear });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "type", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -105,11 +148,17 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async (params) => {
-      const code = params.code || params.expression;
-      const tab_id = params.tab_id;
-      if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
-      const result = await send("eval_js", { tab_id, code });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "eval_js" });
+      try {
+        const code = params.code || params.expression;
+        const tab_id = params.tab_id;
+        if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
+        const result = await send("eval_js", { tab_id, code });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "eval_js", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -126,8 +175,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ fields, tab_id }) => {
-      const result = await send("fill_form", { tab_id, fields });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "fill_form" });
+      try {
+        const result = await send("fill_form", { tab_id, fields });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "fill_form", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -139,8 +194,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ selector, tab_id }) => {
-      const info = await send("get_element_info", { tab_id, selector });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      sendEvent("tool_invoked", { tool: "get_element_info" });
+      try {
+        const info = await send("get_element_info", { tab_id, selector });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "get_element_info", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -153,8 +214,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ selector, timeout, tab_id }) => {
-      const result = await send("wait_for", { tab_id, selector, timeout }, timeout + 5000);
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "wait_for" });
+      try {
+        const result = await send("wait_for", { tab_id, selector, timeout }, timeout + 5000);
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "wait_for", error: err.message });
+        throw err;
+      }
     }
   );
 
@@ -169,8 +236,14 @@ export function registerTools(server, send, getWarning = () => null) {
       tab_id: z.number().optional().describe("Tab ID, omit for active tab"),
     },
     async ({ x, y, selector, behavior, tab_id }) => {
-      const result = await send("scroll", { tab_id, x, y, selector, behavior });
-      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      sendEvent("tool_invoked", { tool: "scroll" });
+      try {
+        const result = await send("scroll", { tab_id, x, y, selector, behavior });
+        return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
+      } catch (err) {
+        sendEvent("tool_error", { tool: "scroll", error: err.message });
+        throw err;
+      }
     }
   );
 }
