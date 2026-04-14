@@ -155,6 +155,20 @@ function connect() {
       return;
     }
 
+    // Handle version check from daemon
+    if (msg.type === "version_check") {
+      const current = chrome.runtime.getManifest().version;
+      const expected = msg.expectedVersion;
+      const outdated = current !== expected;
+      safeSend(socket, { type: "version_report", currentVersion: current, expectedVersion: expected, outdated });
+      if (outdated) {
+        log(`Extension v${current} is outdated — v${expected} available. Reload from extensions page.`);
+        chrome.action.setBadgeText({ text: "UPD" });
+        chrome.action.setBadgeBackgroundColor({ color: "#f59e0b" });
+      }
+      return;
+    }
+
     // Handle session lifecycle messages (no response expected)
     if (msg.type === "session_end") {
       await handleSessionEnd(msg.sessionId);

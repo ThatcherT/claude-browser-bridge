@@ -3656,6 +3656,7 @@ var import_net = require("net");
 var import_http = require("http");
 var import_fs2 = require("fs");
 var import_crypto = require("crypto");
+var import_path2 = require("path");
 
 // server/ipc.js
 var import_os = require("os");
@@ -3697,8 +3698,18 @@ function sendNdjson(socket, obj) {
 // server/daemon.js
 var log = (...args) => process.stderr.write(args.join(" ") + "\n");
 var extensionSocket = null;
+var extensionVersionWarning = null;
 var pending = /* @__PURE__ */ new Map();
 var clients = /* @__PURE__ */ new Map();
+var expectedExtensionVersion = null;
+try {
+  const manifestPath = (0, import_path2.join)(process.cwd(), "extension", "manifest.json");
+  const manifest = JSON.parse((0, import_fs2.readFileSync)(manifestPath, "utf-8"));
+  expectedExtensionVersion = manifest.version;
+  log(`[daemon] Expected extension version: ${expectedExtensionVersion}`);
+} catch {
+  log("[daemon] Could not read bundled extension manifest \u2014 version check disabled");
+}
 var httpServer = (0, import_http.createServer)((req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
@@ -3728,6 +3739,10 @@ wss.on("connection", (ws) => {
   }
   log("[daemon] Extension connected");
   extensionSocket = ws;
+  extensionVersionWarning = null;
+  if (expectedExtensionVersion) {
+    ws.send(JSON.stringify({ type: "version_check", expectedVersion: expectedExtensionVersion }));
+  }
   broadcastStatus();
   ws.on("message", (raw) => {
     let msg;
@@ -3735,6 +3750,17 @@ wss.on("connection", (ws) => {
       msg = JSON.parse(raw.toString());
     } catch {
       log("[daemon] Bad message from extension:", raw.toString());
+      return;
+    }
+    if (msg.type === "version_report") {
+      if (msg.outdated) {
+        extensionVersionWarning = `Browser extension is v${msg.currentVersion} but v${msg.expectedVersion} is available. Reload the extension from your browser's extensions page (the updated code is at the same path).`;
+        log(`[daemon] Extension version mismatch: loaded=${msg.currentVersion}, expected=${msg.expectedVersion}`);
+        broadcastStatus();
+      } else {
+        extensionVersionWarning = null;
+        log(`[daemon] Extension version OK: ${msg.currentVersion}`);
+      }
       return;
     }
     const entry = pending.get(msg.id);
@@ -3745,7 +3771,8 @@ wss.on("connection", (ws) => {
       type: "response",
       requestId: entry.clientRequestId,
       success: msg.success,
-      ...msg.success ? { data: msg.data } : { error: msg.error || "Unknown extension error" }
+      ...msg.success ? { data: msg.data } : { error: msg.error || "Unknown extension error" },
+      ...extensionVersionWarning ? { warning: extensionVersionWarning } : {}
     });
   });
   ws.on("close", () => {
@@ -3854,7 +3881,8 @@ ipcServer.on("error", (err) => {
 function broadcastStatus() {
   const status = {
     type: "status",
-    extensionConnected: !!(extensionSocket && extensionSocket.readyState === extensionSocket.OPEN)
+    extensionConnected: !!(extensionSocket && extensionSocket.readyState === extensionSocket.OPEN),
+    ...extensionVersionWarning ? { extensionVersionWarning } : {}
   };
   for (const [client] of clients) {
     sendNdjson(client, status);

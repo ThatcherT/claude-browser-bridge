@@ -11,16 +11,30 @@
 import { WebSocketServer } from "ws";
 import { createServer as createNetServer } from "net";
 import { createServer as createHttpServer } from "http";
-import { unlinkSync, existsSync } from "fs";
+import { unlinkSync, existsSync, readFileSync } from "fs";
 import { randomUUID } from "crypto";
+import { join } from "path";
 import { getIpcAddress, createNdjsonParser, sendNdjson, PORT } from "./ipc.js";
 
 const log = (...args) => process.stderr.write(args.join(" ") + "\n");
 
 // --- State ---
 let extensionSocket = null;
+let extensionVersionWarning = null; // null if versions match, string message if outdated
 const pending = new Map(); // requestId → { clientSocket, timer }
 const clients = new Map(); // socket → { sessionId }
+
+// Read the bundled extension version so we can detect outdated installs.
+// The daemon is started with cwd set to the plugin root, so extension/ is relative to cwd.
+let expectedExtensionVersion = null;
+try {
+  const manifestPath = join(process.cwd(), "extension", "manifest.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  expectedExtensionVersion = manifest.version;
+  log(`[daemon] Expected extension version: ${expectedExtensionVersion}`);
+} catch {
+  log("[daemon] Could not read bundled extension manifest — version check disabled");
+}
 
 // --- WebSocket server (talks to browser extension) ---
 // Use an HTTP server to handle Private Network Access (PNA) preflight requests.
@@ -62,6 +76,12 @@ wss.on("connection", (ws) => {
   }
   log("[daemon] Extension connected");
   extensionSocket = ws;
+  extensionVersionWarning = null;
+
+  // Send expected version so the extension can compare
+  if (expectedExtensionVersion) {
+    ws.send(JSON.stringify({ type: "version_check", expectedVersion: expectedExtensionVersion }));
+  }
 
   // Notify all IPC clients
   broadcastStatus();
@@ -72,6 +92,21 @@ wss.on("connection", (ws) => {
       msg = JSON.parse(raw.toString());
     } catch {
       log("[daemon] Bad message from extension:", raw.toString());
+      return;
+    }
+
+    // Handle version report from extension
+    if (msg.type === "version_report") {
+      if (msg.outdated) {
+        extensionVersionWarning =
+          `Browser extension is v${msg.currentVersion} but v${msg.expectedVersion} is available. ` +
+          `Reload the extension from your browser's extensions page (the updated code is at the same path).`;
+        log(`[daemon] Extension version mismatch: loaded=${msg.currentVersion}, expected=${msg.expectedVersion}`);
+        broadcastStatus();
+      } else {
+        extensionVersionWarning = null;
+        log(`[daemon] Extension version OK: ${msg.currentVersion}`);
+      }
       return;
     }
 
@@ -86,6 +121,7 @@ wss.on("connection", (ws) => {
       requestId: entry.clientRequestId,
       success: msg.success,
       ...(msg.success ? { data: msg.data } : { error: msg.error || "Unknown extension error" }),
+      ...(extensionVersionWarning ? { warning: extensionVersionWarning } : {}),
     });
   });
 
@@ -231,6 +267,7 @@ function broadcastStatus() {
   const status = {
     type: "status",
     extensionConnected: !!(extensionSocket && extensionSocket.readyState === extensionSocket.OPEN),
+    ...(extensionVersionWarning ? { extensionVersionWarning } : {}),
   };
   for (const [client] of clients) {
     sendNdjson(client, status);

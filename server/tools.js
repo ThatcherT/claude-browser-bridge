@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export function registerTools(server, send) {
+export function registerTools(server, send, getWarning = () => null) {
+  // Append version warning to tool response content if present
+  function withWarning(content) {
+    const warning = getWarning();
+    if (!warning) return content;
+    return [...content, { type: "text", text: `\n⚠️ ${warning}` }];
+  }
+
   server.tool(
     "list_tabs",
     "List open browser tabs (scoped to this session's tab group by default)",
@@ -9,7 +16,7 @@ export function registerTools(server, send) {
     },
     async ({ all_tabs }) => {
       const tabs = await send("list_tabs", { all_tabs });
-      return { content: [{ type: "text", text: JSON.stringify(tabs, null, 2) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(tabs, null, 2) }]) };
     }
   );
 
@@ -19,7 +26,7 @@ export function registerTools(server, send) {
     { tab_id: z.number().optional().describe("Tab ID, omit for active tab") },
     async ({ tab_id }) => {
       const info = await send("get_tab_info", { tab_id });
-      return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
     }
   );
 
@@ -30,7 +37,7 @@ export function registerTools(server, send) {
     async ({ tab_id }) => {
       const base64 = await send("screenshot", { tab_id });
       return {
-        content: [{ type: "image", data: base64, mimeType: "image/png" }],
+        content: withWarning([{ type: "image", data: base64, mimeType: "image/png" }]),
       };
     }
   );
@@ -44,7 +51,7 @@ export function registerTools(server, send) {
     },
     async ({ tab_id, format }) => {
       const content = await send("get_page_content", { tab_id, format });
-      return { content: [{ type: "text", text: content }] };
+      return { content: withWarning([{ type: "text", text: content }]) };
     }
   );
 
@@ -57,7 +64,7 @@ export function registerTools(server, send) {
     },
     async ({ url, tab_id }) => {
       const result = await send("navigate", { tab_id, url }, 60000);
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
     }
   );
 
@@ -70,7 +77,7 @@ export function registerTools(server, send) {
     },
     async ({ selector, tab_id }) => {
       const result = await send("click", { tab_id, selector });
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
     }
   );
 
@@ -85,7 +92,7 @@ export function registerTools(server, send) {
     },
     async ({ selector, text, clear, tab_id }) => {
       const result = await send("type", { tab_id, selector, text, clear });
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
     }
   );
 
@@ -102,7 +109,7 @@ export function registerTools(server, send) {
       const tab_id = params.tab_id;
       if (!code) throw new Error("Missing 'code' (or 'expression') parameter");
       const result = await send("eval_js", { tab_id, code });
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
     }
   );
 
@@ -120,7 +127,7 @@ export function registerTools(server, send) {
     },
     async ({ fields, tab_id }) => {
       const result = await send("fill_form", { tab_id, fields });
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result, null, 2) }]) };
     }
   );
 
@@ -133,7 +140,7 @@ export function registerTools(server, send) {
     },
     async ({ selector, tab_id }) => {
       const info = await send("get_element_info", { tab_id, selector });
-      return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(info, null, 2) }]) };
     }
   );
 
@@ -147,7 +154,7 @@ export function registerTools(server, send) {
     },
     async ({ selector, timeout, tab_id }) => {
       const result = await send("wait_for", { tab_id, selector, timeout }, timeout + 5000);
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
     }
   );
 
@@ -163,7 +170,7 @@ export function registerTools(server, send) {
     },
     async ({ x, y, selector, behavior, tab_id }) => {
       const result = await send("scroll", { tab_id, x, y, selector, behavior });
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      return { content: withWarning([{ type: "text", text: JSON.stringify(result) }]) };
     }
   );
 }

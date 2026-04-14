@@ -28,6 +28,7 @@ const ipcAddress = getIpcAddress();
 let ipcSocket = null;
 let reconnecting = false;
 let reconnectDelay = RECONNECT_DELAY;
+let extensionVersionWarning = null;
 
 function connectToDaemon() {
   return new Promise((resolve, reject) => {
@@ -43,6 +44,7 @@ function connectToDaemon() {
 
     socket.on("data", createNdjsonParser((msg) => {
       if (msg.type === "response") {
+        if (msg.warning) extensionVersionWarning = msg.warning;
         const entry = pending.get(msg.requestId);
         if (!entry) return;
         clearTimeout(entry.timer);
@@ -54,6 +56,10 @@ function connectToDaemon() {
         }
       } else if (msg.type === "status") {
         log(`[browser-bridge] Extension connected: ${msg.extensionConnected}`);
+        if (msg.extensionVersionWarning) {
+          extensionVersionWarning = msg.extensionVersionWarning;
+          log(`[browser-bridge] ${msg.extensionVersionWarning}`);
+        }
       }
     }));
 
@@ -146,7 +152,7 @@ const mcp = new McpServer({
   version: "3.0.0",
 });
 
-registerTools(mcp, sendToDaemon);
+registerTools(mcp, sendToDaemon, () => extensionVersionWarning);
 
 const transport = new StdioServerTransport();
 await mcp.connect(transport);
