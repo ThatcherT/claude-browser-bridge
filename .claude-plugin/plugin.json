@@ -7,12 +7,19 @@
     "url": "https://github.com/ThatcherT"
   },
   "repository": "https://github.com/ThatcherT/claude-browser-bridge",
-  "license": "MIT",
-  "keywords": ["browser", "websocket", "extension", "automation"],
+  "license": "Proprietary",
+  "keywords": [
+    "browser",
+    "websocket",
+    "extension",
+    "automation"
+  ],
   "mcpServers": {
     "claude-browser-bridge": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.mjs"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/index.mjs"
+      ],
       "cwd": "${CLAUDE_PLUGIN_ROOT}"
     }
   }
