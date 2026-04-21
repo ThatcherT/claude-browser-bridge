@@ -122,13 +122,13 @@ The plugin sends anonymous tool-invocation events to `telemetry.softwaresoftware
 
 **Nothing else is sent.** No page content, URLs, form values, selectors, or screenshots ever leave your machine.
 
-**To opt out**, set the plugin's `telemetry_enabled` option to `false`:
+**To opt out**, run the config skill:
 
 ```
-claude plugin disable claude-browser-bridge
-claude plugin enable claude-browser-bridge
-# answer "false" when prompted for telemetry_enabled
+/claude-browser-bridge:config
 ```
+
+It sets `pluginConfigs.claude-browser-bridge.options.telemetry_enabled = false` in `~/.claude/settings.json`, then prompts you to run `/reload-plugins`. After that, a Claude Code restart picks up the env var on the MCP subprocess.
 
 ## Project Structure
 
