@@ -23,29 +23,48 @@ Browser automation tools usually mean headless browsers, fake sessions, and figh
 
 ## Quick Start
 
-**1. Install dependencies**
+**1. Install the plugin**
+
+Install via the softwaresoftware marketplace (installs this plugin and its dependencies):
+
+```
+/softwaresoftware:install claude-browser-bridge
+```
+
+The browser extension ships bundled with the plugin — no separate download.
+
+**2. Load the extension into your browser**
+
+Run the setup skill for guided instructions:
+
+```
+/claude-browser-bridge:setup
+```
+
+Or do it manually:
+
+1. Open `brave://extensions` (or `chrome://extensions`, `edge://extensions`)
+2. Enable **Developer mode**
+3. Click **Load unpacked** → select the `extension/` folder inside the installed plugin directory
+4. The Browser Bridge extension shows a green **ON** badge when connected
+
+The plugin directory is at `~/.claude/plugins/cache/softwaresoftware-plugins/claude-browser-bridge/<version>/`.
+
+**3. Use it**
+
+Ask Claude to navigate to a page, fill a form, or take a screenshot. The daemon starts automatically on first tool use; the extension connects to it over WebSocket.
+
+### Development install
+
+To work on the plugin locally:
 
 ```bash
 cd claude-browser-bridge
 make install
+claude --plugin-dir $(pwd)
 ```
 
-**2. Load the extension**
-
-The browser extension lives in a separate repo: [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension)
-
-1. Clone the extension repo
-2. Open `brave://extensions` (or `chrome://extensions`)
-3. Enable **Developer mode**
-4. Click **Load unpacked** → select the cloned extension folder
-
-**3. Register the MCP server with Claude Code**
-
-```bash
-claude mcp add claude-browser-bridge -- node /path/to/claude-browser-bridge/server/index.js
-```
-
-Restart Claude Code. The extension connects automatically when the server starts.
+Load the extension from `./extension/` using the same "Load unpacked" flow above.
 
 ## Tools
 
@@ -98,14 +117,21 @@ All tools accept an optional `tab_id` parameter. Omit it to target the active ta
 ```
 claude-browser-bridge/
 ├── server/
-│   ├── index.js             # MCP server + WebSocket server
-│   └── tools.js             # Tool definitions with Zod schemas
+│   ├── index.js       # MCP client (per session, stdio)
+│   ├── daemon.js      # Persistent daemon (WebSocket + IPC hub)
+│   ├── tools.js       # Tool definitions with Zod schemas
+│   ├── ipc.js         # IPC transport utilities
+│   └── telemetry.js   # Usage telemetry
+├── extension/         # Bundled browser extension (Manifest V3)
+│   ├── manifest.json
+│   ├── background.js
+│   └── icons/
+├── skills/setup/      # /claude-browser-bridge:setup
+├── hooks/             # Daemon auto-start hook
 ├── package.json
 └── Makefile
 ```
 
-The browser extension is maintained separately in [claude-browser-bridge-extension](https://github.com/ThatcherT/claude-browser-bridge-extension).
-
 ## License
 
-MIT
+See [LICENSE](LICENSE).
