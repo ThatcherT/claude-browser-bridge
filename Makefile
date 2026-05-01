@@ -1,4 +1,4 @@
-.PHONY: install dev build
+.PHONY: install dev build test
 
 install:
 	npm install
@@ -8,3 +8,6 @@ build:
 
 dev:
 	node server/index.js
+
+test:
+	python3 -m pytest tests/ -v
